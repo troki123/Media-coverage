@@ -3,6 +3,7 @@ import requests
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+from flask import request # imports requests
 
 load_dotenv()
 
@@ -12,15 +13,16 @@ genai.configure(api_key = os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-pro")
 
 # Code For Fetching News
-def fetch_news():
-    url = "https://newsapi.org/v2/top-headlines"
+def fetch_news(query):
+    url = "https://newsapi.org/v2/everything"
     params = {
-        "category": "general",
+        # query tells newsapi to give articles related to this keyword
+        "q": query,
         "pageSize": 10,
         "apiKey": os.getenv("NEWS_API_KEY")
     }
 
-    response = requests.get(url, params = params)
+    response = requests.get(url, params=params)
     data = response.json()
     return data["articles"]
 
@@ -28,15 +30,19 @@ def fetch_news():
 @app.route("/news-summary")
 def news_summary():
     try:
-        articles = fetch_news()
+        # this should read the query from the url
+        query = request.args.get("q", "technology")  # default if empty
 
+        articles = fetch_news(query)
+
+        # sends a response to frontend
         return jsonify({
             "articles": [
                 {"title": a["title"], "url": a["url"]}
                 for a in articles
-            ]
+            ],
         })
-    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
