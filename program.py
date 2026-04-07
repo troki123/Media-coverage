@@ -2,15 +2,19 @@ from flask import Flask, jsonify
 import requests
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 from flask import request # imports requests
 
 load_dotenv()
 
 app = Flask(__name__)
 
-genai.configure(api_key = os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-pro")
+client = genai.Client(api_key="GEMINI_API_KEY")
+
+response = client.models.generate_content(
+    model="gemini-2.0-flash",
+    contents="Summarize this text..."
+)
 
 # Code For Fetching News
 def fetch_news(query):
