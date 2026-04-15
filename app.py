@@ -10,28 +10,38 @@ TAVILY_KEY = os.getenv("TAVILY_API_KEY")
 
 tavily = TavilyClient(api_key=TAVILY_KEY)
 
-# Using the stable Gemini 2.5 Flash model found in your project
+# Using Gemini 2.5 Flash
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GOOGLE_KEY}"
 
 def fetch_news(query):
-    """Searches the internet for the latest news and returns raw content."""
-    print(f"🔍 Searching for news about: {query}...")
-    # Advanced search to get better snippets for the AI to read
-    search = tavily.search(query=query, search_depth="advanced", max_results=3)
+    """Fetches news and filters out social media/video platforms."""
+    print(f"🔍 Fetching textual sources for: {query}...")
+    
+    # Dodajemo 'exclude_domains' kako bi Tavily odmah preskočio uobičajene video/social platforme
+    search = tavily.search(
+        query=query, 
+        search_depth="basic", 
+        max_results=15, # Tražimo više da bi AI imao od čega filtrirati
+        exclude_domains=["youtube.com", "instagram.com", "reddit.com", "tiktok.com", "facebook.com", "vimeo.com", "twitter.com", "x.com"]
+    )
     
     context = ""
     for r in search['results']:
-        context += f"\nSOURCE: {r['url']}\nCONTENT: {r['content']}\n"
+        context += f"TITLE: {r['title']} | URL: {r['url']}\n"
     return context
 
 def ask_gemini(news_content, query):
-    """Sends news data to Gemini 2.5 Flash and returns an English summary."""
-    print("🧠 AI (Gemini 2.5 Flash) is analyzing the data...")
+    """Filters and formats only high-quality textual links."""
+    print("🧠 AI is filtering and formatting text-only sources...")
     
     prompt_text = (
-        f"You are a professional news analyst. Based on the following news data, "
-        f"write a comprehensive and objective report in English about '{query}':\n\n"
-        f"{news_content}"
+        f"You are a professional research librarian. I have a list of potential sources for '{query}'.\n\n"
+        f"TASK:\n"
+        f"1. Remove any links that point to YouTube, Instagram, Reddit, or any social media.\n"
+        f"2. Provide a clean, numbered list of ONLY high-quality articles, news reports, and academic/official websites.\n"
+        f"3. Format as: Title - Link.\n"
+        f"4. Maximum 10 results. No summaries, no intros.\n\n"
+        f"DATA:\n{news_content}"
     )
     
     payload = {
@@ -50,20 +60,20 @@ def ask_gemini(news_content, query):
         return f"AI Server Error: {response.status_code} - {response.text}"
 
 def main():
-    user_query = input("Enter the topic for news search: ")
+    user_query = input("Enter the topic for a text-only source list: ")
     
     try:
         news_data = fetch_news(user_query)
         if not news_data:
-            print("No news found for this topic.")
+            print("No sources found.")
             return
             
-        report = ask_gemini(news_data, user_query)
+        link_list = ask_gemini(news_data, user_query)
         
-        print("\n" + "="*40)
-        print("        FINAL NEWS REPORT        ")
-        print("="*40)
-        print(report)
+        print("\n" + "="*60)
+        print(f" TEXT-ONLY SOURCES FOR: {user_query.upper()} ")
+        print("="*60)
+        print(link_list)
         
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
