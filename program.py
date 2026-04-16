@@ -9,12 +9,15 @@ load_dotenv()
 
 app = Flask(__name__)
 
-client = genai.Client(api_key="GEMINI_API_KEY")
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-response = client.models.generate_content(
-    model="gemini-2.0-flash",
-    contents="Summarize this text..."
-)
+# A response will now be only sent when requested
+def test_gemini():
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents="Summarize this text..."
+    )
+    return response.text
 
 # Code For Fetching News
 def fetch_news(query):
