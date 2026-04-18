@@ -20,7 +20,7 @@ async function loadNews()
 
     } 
     catch (error) {
-        summaryDiv.innerHTML = "<p>Error loading news</p>";
+        articlesDiv.innerHTML = "<p>Error loading news</p>";
         console.error(error);
     }
 }
