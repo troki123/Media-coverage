@@ -34,7 +34,7 @@ def fetch_news(query):
 def news_summary():
     try:
         # this should read the query from the url
-        query = request.args.get("q", "technology")  # default if empty
+        query = request.args.get("q", "general")  # default if empty
 
         articles = fetch_news(query)
 
