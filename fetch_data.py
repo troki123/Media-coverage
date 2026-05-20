@@ -15,8 +15,10 @@ def fetch_news(query):
     params = {
         # query tells newsapi to give articles related to this keyword
         "q": query,
-        "pageSize": 10,
-        "apiKey": os.getenv("NEWS_API_KEY")
+        "pageSize": 100,
+        "apiKey": os.getenv("NEWS_API_KEY"),
+        "sortBy": "relevancy",
+        "language": "en"
     }
 
     # requests.get sends a request to newsapi server
@@ -39,10 +41,18 @@ def news_summary():
         # jsonify converts python data into a JSON response
         # articles table extracts only the title and url of the article
         return jsonify({
+            "query": query,
             "articles": [
-                {"title": a["title"], "url": a["url"]}
-                for a in articles # loops through every article
-            ],
+                {
+                    "title": a.get("title", "No title"),
+                    "url": a.get("url", "#"),
+                    "description": a.get("description", "No descritpion available"),
+                    "source": a.get("source", {}).get("name", "Unknown"),
+                    "published_at": a.get("publishedAt", "")
+                }
+
+                for a in articles if a.get("title") and a.get("url")
+            ]
         })
 
     except Exception as e:
