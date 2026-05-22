@@ -1,6 +1,7 @@
 import os  # Uncomment when using API_KEY as envirovental variable (on Windows)
 from google import genai
 from google.genai import types
+from datetime import datetime, timezone
 
 class GeminiSumarize:
     def __init__(self):
@@ -19,41 +20,43 @@ class GeminiSumarize:
                 model=self.primary_model,
                 contents=prompt
             )
-            return response
+            return response, self.primary_model
 
         except Exception as e:
             # Provjera je li 503 greška
             if "503" in str(e):
-                print("503 greška na {self.primary_model} — prebacujem na gemini-2.5-flash-lite...")
+                print("503 error on {self.primary_model} — switching to gemini-2.5-flash-lite...")
 
                 try:
                     response = self.client.models.generate_content(
                         model=self.fallback_model,
                         contents=prompt
                     )
-                    return response
+                    return response, self.fallback_model
                 except Exception as e2:
-                    print(f"Fallback model {self.fallback_model} također nije uspio: {e2}")
-                    return None
+                    print(f"Fallback model {self.fallback_model} also failed: {e2}")
+                    return None, None
             else:
-                print(f"Druga greška: {e}")
-                return None
+                print(f"Error: {e}")
+                return None, None
 
     def get_summary(self,  article_text: str = None) -> str:
         """
         structured_prompt = (
-            "Ti si stručni asistent za analizu vijesti. Sažmi sljedeći tekst s interneta "
-            "u obliku kratkog paragrafa (glavni događaj), a zatim izdvoji 3 ključna detalja u natuknicama. "
-            "Odgovor mora biti na hrvatskom jeziku.\n\n"
-            f"Tekst članka:\n{article_text}"
+            You are a news analysis expert. Summarize the following text from the Internet"
+            "in the form of a short paragraph (the main event), then highlight 3 key details in bullet points. "
+            "The answer must be in English and must only contain the summaries.\n\n"
+            f"Article text:\n{article_text}"
         )
         """
 
-        structured_prompt = "Napravi mi cvijet, ali sa ASCII znakovima"
+        structured_prompt = "Napravi mi samo jedan cvijet, ali sa ASCII znakovima"
 
-        response = self._generate_with_fallback(structured_prompt)
+        response, koristen_model = self._generate_with_fallback(structured_prompt)
 
         if response and response.text:
-            return(response.text)
+            print(f"\n[INFO] Succesfully generated with model: {koristen_model}")
+
+            return response.text + "\n" + str(datetime.now(timezone.utc).strftime("%d-%m-%Y"))
         else:
-            return "Odgovor nije dobiven."
+            return "Answer not received."

@@ -1,4 +1,7 @@
-.env
-venv/
-database/
-__pycache__/
+**/.env
+**/venv/
+**/database/
+
+
+**/__pycache__/
+*.pyc

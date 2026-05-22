@@ -6,6 +6,7 @@ from flask import request # imports requests
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
 
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -68,7 +69,7 @@ def search():
                     "url": a.get("url", "#"),
                     "description": a.get("description", "No descritpion available"),
                     "source": a.get("source", {}).get("name", "Unknown"),
-                    "published_at": a.get("publishedAt", "")
+                    "published_at": a.get("publishedAt", ""),
                 }
 
                 for a in articles if a.get("title") and a.get("url")
@@ -79,7 +80,6 @@ def search():
         return jsonify({"error": str(e)}), 500
     
 @app.route("/summary", methods=["GET"])
-
 def news_summary():
      # docstring for summary route, required so we can see summary endpoint in swagger
     """
@@ -90,7 +90,7 @@ def news_summary():
         description: Successfully generated summary
     """
     summary = GeminiSumarize()
-    return summary.get_summary()
+    return summary.get_summary() 
     
 if __name__ == "__main__":
     app.run(debug = True)
