@@ -6,29 +6,67 @@ from flask import request # imports requests
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
 import logging
+from logging.config import dictConfig
 from datetime import datetime, timezone
 
 
 load_dotenv()
 
-app = Flask(__name__)
-swagger = Swagger(app)
-
-
-# ============================== LOGGER ===================================
+# =========================== LOGGER =========================
+# Osiguranje foldera
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
-logger = logging.getLogger("SimpleLogger")
-logger.setLevel(logging.DEBUG)
+date_str = datetime.now(timezone.utc).strftime("%d_%m_%Y_")
 
-date_str = str(datetime.now(timezone.utc).strftime("%d_%m_%Y_"))
-file_handler = logging.FileHandler(f"logs/{date_str}app.log")
+# Globalna konfiguracija logiranja za cijelu aplikaciju
+dictConfig({
+    'version': 1,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+        }
+    },
+    'handlers': {
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': f'logs/{date_str}app.log',
+            'formatter': 'default',
+            'level': 'DEBUG',
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+            'level': 'INFO',
+        }
+    },
+    'loggers': {
+        'httpcore': {
+            'level': 'WARNING',
+            'handlers': ['console', 'file'],
+            'propagate': False,
+        },
+        'google': {
+            'level': 'WARNING',
+            'handlers': ['console', 'file'],
+            'propagate': False,
+        },
+        
+        'werkzeug': {
+            'level': 'INFO',
+            'handlers': ['console', 'file'],
+            'propagate': False,
+        }
+    },
+    'root': {
+        'level': 'DEBUG',
+        'handlers': ['console', 'file']
+    }
+})
 
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+# =============== API ===============
+app = Flask(__name__)
+swagger = Swagger(app)
 
 
 # Function retrieves news articles from newspapi based on user provided search query
@@ -47,9 +85,13 @@ def fetch_news(query):
     # requests.get sends a request to newsapi server
     # server sends data back in JSON format
     # data only extracts title and url of the article
+    app.logger.info(f"Sending request to NewsAPI for query: '{query}'")
+
     response = requests.get(url, params=params)
     data = response.json()
-    return data["articles"]
+    articles = data.get("articles", [])
+    app.logger.info(f"Successfully fetched {len(articles)} articles from NewsAPI.")
+    return articles
 
 # Function defines flask api endpoint - handles incoming requests
 # Reads query parameters, fetches articles using fetch_news() and returns JSON response
@@ -76,6 +118,8 @@ def search():
         # this should read the query from the url
         query = request.args.get("q", "general")  # default if empty
 
+        app.logger.info(f"Endpoint /search called with query parameter: '{query}'")
+
         articles = fetch_news(query)
 
         # jsonify converts python data into a JSON response
@@ -96,6 +140,7 @@ def search():
         })
 
     except Exception as e:
+        app.logger.error(f"Error occurred in /search endpoint: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
     
 
@@ -110,8 +155,15 @@ def news_summary():
       200:
         description: Successfully generated summary
     """
-    summary = GeminiSumarize()
-    return summary.get_summary() 
+
+    try:
+        app.logger.info("Endpoint /summary called. Initializing Gemini Summarization...")
+        summary = GeminiSumarize()
+        return summary.get_summary() 
+    except Exception as e:
+        app.logger.error(f"Error occurred in /summary endpoint: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
     
 if __name__ == "__main__":
     app.run(debug = True)
