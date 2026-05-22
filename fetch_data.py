@@ -3,10 +3,13 @@ import requests
 import os
 from dotenv import load_dotenv
 from flask import request # imports requests
+from flasgger import Swagger
+from news_summary.Gemini_AIsummary import GeminiSumarize
 
 load_dotenv()
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # Function retrieves news articles from newspapi based on user provided search query
 # Requests are sent to newsapi endpoint and returns a list of matching articles
@@ -30,8 +33,25 @@ def fetch_news(query):
 
 # Function defines flask api endpoint - handles incoming requests
 # Reads query parameters, fetches articles using fetch_news() and returns JSON response
-@app.route("/news-summary")
-def news_summary():
+@app.route("/search", methods=["GET"])
+def search():
+    # docstring for search route, required so we can see search endpoint in swagger
+    """
+    Searching for articles with NewsAPI
+    ---
+    parameters:
+      - name: q
+        in: query
+        type: string
+        required: false
+        default: technology
+        description: Key word for fetching articles
+    responses:
+      200:
+        description: Articles succesfully fetched
+      500:
+        description: Internal Server error
+    """
     try:
         # this should read the query from the url
         query = request.args.get("q", "general")  # default if empty
@@ -57,6 +77,20 @@ def news_summary():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/summary", methods=["GET"])
+
+def news_summary():
+     # docstring for summary route, required so we can see summary endpoint in swagger
+    """
+    Generating summary with Gemini AI
+    ---
+    responses:
+      200:
+        description: Successfully generated summary
+    """
+    summary = GeminiSumarize()
+    return summary.get_summary()
     
 if __name__ == "__main__":
     app.run(debug = True)
