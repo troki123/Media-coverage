@@ -5,12 +5,31 @@ from dotenv import load_dotenv
 from flask import request # imports requests
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
+import logging
+from datetime import datetime, timezone
 
 
 load_dotenv()
 
 app = Flask(__name__)
 swagger = Swagger(app)
+
+
+# ============================== LOGGER ===================================
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+logger = logging.getLogger("SimpleLogger")
+logger.setLevel(logging.DEBUG)
+
+date_str = str(datetime.now(timezone.utc).strftime("%d_%m_%Y_"))
+file_handler = logging.FileHandler(f"logs/{date_str}app.log")
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 
 # Function retrieves news articles from newspapi based on user provided search query
 # Requests are sent to newsapi endpoint and returns a list of matching articles
@@ -79,6 +98,8 @@ def search():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+
+# =========================== AI SUMMARY ===========================================
 @app.route("/summary", methods=["GET"])
 def news_summary():
      # docstring for summary route, required so we can see summary endpoint in swagger
