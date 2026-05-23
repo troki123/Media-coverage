@@ -23,7 +23,7 @@ def register_error_handlers(app):
         
         # If there is an unexpected code crash (Example: KeyError, AttributeError, 500...)
         # Log the entire Stack Trace (exc_info=True) in our app.log file
-        app.logger.error("GENERIC CRITICAL ERROR: {str(e)}", exc_info=True)
+        app.logger.error(f"GENERIC CRITICAL ERROR: {str(e)}", exc_info=True)
 
         # Return to the user a clear and secure JSON (hide internal details for security reasons)
         return jsonify({

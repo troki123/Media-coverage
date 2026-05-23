@@ -34,6 +34,11 @@ def setup_logging():
             }
         },
         'loggers': {
+            'core': {
+                'level' : 'DEBUG',
+                'handlers' : ['console', 'file'],
+                'propagate': False,
+            }, 
             'news_summary': {
                 'level' : 'DEBUG',
                 'handlers' : ['console', 'file'],

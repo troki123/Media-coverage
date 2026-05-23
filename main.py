@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify,request
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
-from core.logging_config import setup_logging
-from core.error_handlers import register_error_handlers
+from core import setup_logging, register_error_handlers
 
 
 # === LOGGER ===
