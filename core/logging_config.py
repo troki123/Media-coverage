@@ -5,18 +5,25 @@ from datetime import datetime, timezone
 
 
 def setup_logging():
-    # Osiguranje foldera
+    """
+    Initializes and configures the centralized logging system for the entire application.
+    Creates the log directory if missing and defines handlers for console and file outputs.
+    """
     if not os.path.exists("logs"):
         os.makedirs("logs")
 
+    # File naming prefix based on the current UTC date
     date_str = datetime.now(timezone.utc).strftime("%d_%m_%Y_")
 
-    # Globalna konfiguracija logiranja za cijelu aplikaciju
+    # Global logging configuration for the entire app
+    # as long as the file uses logger and is called by main.py, it automatically uses this configuration
     dictConfig({
         'version': 1,
+        # Prevents Flask's debug mode from shutting down loggers initialized on startup
         'disable_existing_loggers': False,
         'formatters': {
             'default': {
+                # Format of log lines, Year-month-day hour:minutes:seconds - logging level - [file name and line] - log message  
                 'format': '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
             }
         },
@@ -34,6 +41,7 @@ def setup_logging():
             }
         },
         'loggers': {
+            # Application internal modules - verbose tracking (DEBUG)
             'core': {
                 'level' : 'DEBUG',
                 'handlers' : ['console', 'file'],
@@ -44,6 +52,7 @@ def setup_logging():
                 'handlers' : ['console', 'file'],
                 'propagate': False,
             },
+            # Chatty external libraries - filtered to capture only warnings and errors
             'httpcore': {
                 'level': 'WARNING',
                 'handlers': ['console', 'file'],
@@ -54,7 +63,7 @@ def setup_logging():
                 'handlers': ['console', 'file'],
                 'propagate': False,
             },
-            
+            # Flask (Werkzeug) WSGI server - captures standard HTTP routing logs
             'werkzeug': {
                 'level': 'INFO',
                 'handlers': ['console', 'file'],

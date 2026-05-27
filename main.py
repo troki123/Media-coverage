@@ -14,10 +14,10 @@ load_dotenv()
 
 # =============== API ===============
 app = Flask(__name__)
-swagger = Swagger(app)
+swagger = Swagger(app)  # Activates Swagger
 
 # === GLOBAL EXCEPTION HANDLER ===
-register_error_handlers(app)
+register_error_handlers(app) 
 
 
 # Function retrieves news articles from newspapi based on user provided search query
