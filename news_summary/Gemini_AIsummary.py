@@ -97,10 +97,12 @@ class GeminiSumarize:
         # ====== STEP 2: LIVE GENERATION ======
         """
         structured_prompt = (
-            You are a news analysis expert. Summarize the following text from the Internet"
-            "in the form of a short paragraph (the main event), then highlight 3 key details in bullet points. "
+            "You are a news analysis expert. "
+            "Summarize the following text from the Internet "
+            "in the form of a short paragraph (the main event), "
+            "then highlight 3 key details in bullet points. "
             "The answer must be in English and must only contain the summaries.\n\n"
-            f"Article text:\n{article_text}"
+            f"Article text:\n{search_query}"
         )
         """
 
