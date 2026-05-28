@@ -22,7 +22,8 @@ class GeminiSumarize:
         self.primary_model = "gemini-2.5-flash"
         self.fallback_model = "gemini-2.5-flash-lite"
 
-        self.db_path = "database/app.py"
+        """self.db_path = "database/app.py"""
+        self.db_path = "database/app.db"
 
     def _generate_with_fallback(self, prompt: str):
         """
@@ -77,14 +78,14 @@ class GeminiSumarize:
 
             # Searching for latest querry
             cursor.execute(
-                "SELECT summary_text FROM media_news WHERE querry =? ORDER BY created_at DESC LIMIT 1",
+                "SELECT summary FROM media_news WHERE content = ? ORDER BY created_at DESC LIMIT 1",
                 (search_query,)
             )
             existing_summary = cursor.fetchone()
             conn.close()
 
             if existing_summary:
-                logger.info(f"CACHE HIT: Found existing summary for querry '{search_querry}' in Database. Skipping Gemini API.")
+                logger.info(f"CACHE HIT: Found existing summary for querry '{search_query}' in Database. Skipping Gemini API.")
                 text_time = str(datetime.now(timezone.utc).strftime("%d-%m-%Y"))
 
                 return existing_summary[0] + "\n" + text_time + " (From database)"
@@ -119,7 +120,7 @@ class GeminiSumarize:
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO search_summaries (search_query, summary_text, model_used) VALUES (?, ?, ?)",
-                (search_querry, response.text, model_used)
+                (search_query, response.text, model_used)
             )
             conn.commit()
             conn.close()
