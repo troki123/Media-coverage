@@ -6,8 +6,11 @@ function App() {
   });
   
   const [activeTab, setActiveTab] = useState('Dashboard');
-
-  const [newsList] = useState([
+  
+  // --- NEW STATE FOR BACKEND INTEGRATION ---
+  const [query, setQuery] = useState(''); // Tracks user input in search bar
+  const [newsList, setNewsList] = useState([
+    // Initial mock data displayed before the user triggers a search
     {
       id: 1,
       title: "New AI Model Released",
@@ -21,6 +24,33 @@ function App() {
       source: "FinanceWeekly"
     }
   ]);
+
+  // --- FUNCTION TO FETCH DATA FROM PYTHON BACKEND ---
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault(); // Prevents page reload on form submit
+    if (!query.trim()) return; // Abort if the query is empty
+
+    try {
+      // Fetching data from the local Python server running on port 5000
+      const response = await fetch(`http://127.0.0.1:5000/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      
+      // If backend returns articles, save them to state
+      if (data && data.articles) {
+        // Mapping backend response data to match the existing UI component structure
+        const formattedArticles = data.articles.map((art, index) => ({
+          id: index,
+          title: art.title || "Analyzed Article",
+          summary: art.description || "No summary available for this article.",
+          source: art.source || "Media Source"
+        }));
+        
+        setNewsList(formattedArticles);
+      }
+    } catch (error) {
+      console.error("Error fetching data from backend:", error);
+    }
+  };
 
   return (
     <div className={darkMode ? 'dark' : ''}> 
@@ -75,25 +105,49 @@ function App() {
               <div className="text-center mb-12">
                 <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4">Discover Global Insights</h1>
                 <p className="text-gray-500 dark:text-gray-400 mb-8">Search and analyze news from around the world in real-time.</p>
-                <div className="relative max-w-2xl mx-auto">
-                  <input type="text" placeholder="Search news..." className="w-full p-4 pl-12 rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
-                  <span className="absolute left-4 top-4.5 text-xl opacity-50">🔍</span>
-                </div>
+                
+                {/* Form wrapper handles both Enter key press and Search button click */}
+                <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
+                  <input 
+                    type="text" 
+                    placeholder="Search news and trigger Gemini analysis..." 
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="w-full p-4 pl-12 pr-24 rounded-2xl bg-white dark:bg-gray-900 shadow-xl border border-gray-100 dark:border-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                  />
+                  <span className="absolute left-4 top-4 text-xl opacity-50">🔍</span>
+                  
+                  {/* Inline action button for cleaner UX */}
+                  <button 
+                    type="submit" 
+                    className="absolute right-3 top-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all"
+                  >
+                    Search
+                  </button>
+                </form>
               </div>
 
               <div className="grid gap-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">Latest Updates</h2>
-                {newsList.map((news) => (
-                  <div key={news.id} className="group bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl dark:hover:shadow-blue-900/20 hover:-translate-y-1 transition-all duration-300">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-3 py-1 rounded-full">{news.source}</span>
-                      <span className="text-gray-400 dark:text-gray-500 text-xs">2h ago</span>
-                    </div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{news.title}</h3>
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{news.summary}</p>
-                    <div className="mt-4 flex items-center text-blue-600 dark:text-blue-400 font-semibold text-sm cursor-pointer">Read Analysis <span className="ml-1 group-hover:ml-2 transition-all">→</span></div>
+                
+                {/* Fallback view when the backend returns 0 results */}
+                {newsList.length === 0 ? (
+                  <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-gray-500 dark:text-gray-400">No articles found on backend for this query.</p>
                   </div>
-                ))}
+                ) : (
+                  newsList.map((news) => (
+                    <div key={news.id} className="group bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl dark:hover:shadow-blue-900/20 hover:-translate-y-1 transition-all duration-300">
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-3 py-1 rounded-full">{news.source}</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs">Just now</span>
+                      </div>
+                      <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{news.title}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{news.summary}</p>
+                      <div className="mt-4 flex items-center text-blue-600 dark:text-blue-400 font-semibold text-sm cursor-pointer">Read Analysis <span className="ml-1 group-hover:ml-2 transition-all">→</span></div>
+                    </div>
+                  ))
+                )}
               </div>
             </>
           )}
@@ -105,15 +159,15 @@ function App() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <p className="text-gray-500 text-sm">Total Articles</p>
-                  <p className="text-3xl font-bold text-blue-600"> / </p>
+                  <p className="text-3xl font-bold text-blue-600"> {newsList.length} </p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <p className="text-gray-500 text-sm">Gemini Analysis</p>
-                  <p className="text-3xl font-bold text-red-500">Not Active</p>
+                  <p className="text-3xl font-bold text-green-500">Connected</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800">
                   <p className="text-gray-500 text-sm">Data Refresh</p>
-                  <p className="text-3xl font-bold text-purple-500"> / </p>
+                  <p className="text-3xl font-bold text-purple-500"> Live </p>
                 </div>
               </div>
               <div className="mt-12 p-12 bg-gray-100 dark:bg-gray-900 rounded-3xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-center">
