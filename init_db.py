@@ -1,4 +1,4 @@
-# init_db.py
+# init_db.py (UPDATED VERSION)
 import sqlite3
 import os
 
@@ -14,6 +14,10 @@ def setup_database():
         link TEXT NOT NULL,
         content TEXT,
         summary TEXT,
+        authors TEXT,              -- NEW: Article authors
+        publish_date DATETIME,     -- NEW: Publication date
+        top_image TEXT,            -- NEW: Main image URL
+        keywords TEXT,             -- NEW: Extracted keywords
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -27,4 +31,4 @@ def setup_database():
 
     conn.commit()
     conn.close()
-    print("Database initialized.")
+    print("Database initialized with full article schema.")
