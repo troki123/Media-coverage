@@ -77,13 +77,7 @@ def get_or_create_search_id(query):
     """Provjerava bazu i vraća stari ID ili kreira novi."""
     conn = sqlite3.connect("database/app.db")
     cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS searches (
-            id INTEGER PRIMARY KEY,
-            query_text TEXT UNIQUE
-        )
-    """)
+
     
     cursor.execute("SELECT id FROM searches WHERE LOWER(query_text) = LOWER(?)", (query.strip(),))
     row = cursor.fetchone()
