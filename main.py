@@ -5,16 +5,22 @@ from flask import Flask, jsonify,request
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
 from core import setup_logging, register_error_handlers
+from flask_cors import CORS
+from init_db import setup_database
 
 
 # === LOGGER ===
 setup_logging()
 
+setup_database()
+
 load_dotenv()
 
 # =============== API ===============
 app = Flask(__name__)
-swagger = Swagger(app)  # Activates Swagger
+
+CORS(app)
+swagger = Swagger(app)
 
 # === GLOBAL EXCEPTION HANDLER ===
 register_error_handlers(app) 
