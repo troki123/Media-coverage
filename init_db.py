@@ -17,6 +17,14 @@ def setup_database():
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS searches (
+            id INTEGER PRIMARY KEY,
+            query_text TEXT UNIQUE
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("Database initialized.")
