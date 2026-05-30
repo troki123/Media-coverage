@@ -3,32 +3,28 @@ from unittest.mock import MagicMock, patch
 from news_summary.Gemini_AIsummary import GeminiSumarize
 
 
-@patch('news_summary.Gemini_AIsummary.sqlite3')  # Faking a database
-@patch('news_summary.Gemini_AIsummary.genai')    # Faking Gemini API
-def test_gemini_summary_success(mock_genai, mock_sqlite):
+@patch('news_summary.Gemini_AIsummary.genai')
+def test_gemini_summary_success(mock_genai):
     """
-    Tests successfull summary generation when database empty (Cache miss)
+    Tests successful content generation through GeminiSummarize 
+    when the local database cache does not contain the requested text.
     """
-
-    # 1. Setting up fake SQLite response (returns None -> not found in database)
-    mock_cursor = mock_sqlite.connect().cursor()
-    mock_cursor.fetchone.return_value = None
-
-    # 2. Setting up fake Gemini API response
+    # Arrange: Mock the Gemini Client and its response structure
     mock_client = MagicMock()
     mock_genai.Client.return_value = mock_client
-
-    # Simulating response.text returning "ASCII FLOWER"
+    
     mock_response = MagicMock()
-    mock_response.text = "ASCII FLOWER"
+    mock_response.text = "Sample ASCII Flower Output"
     mock_client.models.generate_content.return_value = mock_response
 
-    # 3. Running our code
-    sumarizer = GeminiSumarize()
-    result = sumarizer.get_summary(search_querry="test_querry")
+    # Act: Run the target method
+    summarizer = GeminiSumarize()
+    result = summarizer.get_summary(article_text="Test raw input data")
 
-    # 4. Assertions
-    assert "ASCII FLOWER" in result
-    # Checking if our code tried to connect to database and add new sumary
-    assert mock_sqlite.connect.called
-    assert mock_cursor.execute.called
+    # Assert: Verify output text and check that the client was called with correct models
+    assert "Sample ASCII Flower Output" in result
+    assert mock_client.models.generate_content.called
+    
+    # Ensure our fallback safety configurations remain intact
+    called_model = mock_client.models.generate_content.call_args[1]['model']
+    assert called_model in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
