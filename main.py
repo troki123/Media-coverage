@@ -5,19 +5,25 @@ from flask import Flask, jsonify,request
 from flasgger import Swagger
 from news_summary.Gemini_AIsummary import GeminiSumarize
 from core import setup_logging, register_error_handlers
+from flask_cors import CORS
+from init_db import setup_database
 
 
 # === LOGGER ===
 setup_logging()
 
+setup_database()
+
 load_dotenv()
 
 # =============== API ===============
 app = Flask(__name__)
+
+CORS(app)
 swagger = Swagger(app)
 
 # === GLOBAL EXCEPTION HANDLER ===
-register_error_handlers(app)
+register_error_handlers(app) 
 
 
 # Function retrieves news articles from newspapi based on user provided search query
@@ -98,15 +104,40 @@ def search():
 def news_summary():
      # docstring for summary route, required so we can see summary endpoint in swagger
     """
-    Generating summary with Gemini AI
+    Generating batch summaries with Gemini AI using a specific search tracking ID
     ---
+    parameters:
+      - name: search_id
+        in: query
+        type: integer
+        required: true
+        description: The internal database search tracking ID to run batch summaries against
+
     responses:
       200:
-        description: Successfully generated summary
+        description: Successfully generated batch summaries
+      400:
+        description: Missing required search_id parameter
+
     """
+    # Extract search_id safely from the incoming URL query string
+    search_id_raw = request.args.get("search_id")
+
+    if not search_id_raw:
+        app.logger.warning("Endpoint /summary called without a search_id parameter.")
+        return jsonify({"error": "Missing required parameter: search_id"}), 400
+
+    try:
+        search_id = int(search_id_raw)
+    except ValueError:
+        return jsonify({"error": "Parameter search_id must be an integer"}), 400
+
+
     app.logger.info("Endpoint /summary called. Initializing Gemini Summarization...")
-    summary = GeminiSumarize()
-    return summary.get_summary() 
+    summarizer = GeminiSumarize()
+    execution_result = summarizer.get_summary(search_id=search_id)
+    return jsonify({"message": execution_result})
+
     
     
 if __name__ == "__main__":
