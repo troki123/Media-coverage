@@ -8,7 +8,7 @@ jobs:
   update-api-documentation:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Grants the workflow authority to push changes back to the repository
+      contents: write
 
     steps:
     - name: Checkout Repository Source
@@ -30,38 +30,49 @@ jobs:
         cat << 'EOF' > generate_docs.py
         import os
         import sys
-        # Emulate required environment variables to prevent initialization crashes
+        import types
+
+        # 1. Stvaranje lažnog (mock) modula za 'google.genai' da spriječimo rušenje pri importu
+        mock_genai = types.ModuleType("genai")
+        mock_google = types.ModuleType("google")
+        mock_google.genai = mock_genai
+        sys.modules["google"] = mock_google
+        sys.modules["google.genai"] = mock_genai
+
+        # Postavljanje lažnog API ključa za okolinu
         os.environ["NEWS_API_KEY"] = "mock_key"
         
         try:
             from main import app
-            print("Successfully inspected application layers.")
+            print("Uspješno učitan Flask backend podsustav.")
         except Exception as e:
-            print(f"Extraction failure: {e}")
+            print(f"Greška pri ekstrakciji: {e}")
             sys.exit(1)
             
         with app.test_request_context():
             markdown_output = "### 🚀 Automated API Endpoint Registry\n\n"
-            markdown_output += "| Method | Endpoint | Description | Query Parameters |\n"
+            markdown_output += "| Metoda | Endpoint | Opis rute | Parametri |\n"
             markdown_output += "| :--- | :--- | :--- | :--- |\n"
             
             for rule in app.url_map.iter_rules():
                 if rule.endpoint != 'static':
                     methods = ', '.join([m for m in rule.methods if m not in ['OPTIONS', 'HEAD']])
                     docstring = app.view_functions[rule.endpoint].__doc__
-                    clean_doc = docstring.strip().split('\n')[0] if docstring else "No description provided."
+                    clean_doc = docstring.strip().split('\n')[0] if docstring else "Nema opisa rute."
                     
-                    params = "None"
+                    params = "Nema"
                     if "search" in rule.rule:
-                        params = "`q` (Required search term)"
+                        params = "`q` (Obavezan pojam za pretragu)"
                         
                     markdown_output += f"| **{methods}** | `{rule.rule}` | {clean_doc} | {params} |\n"
             
-            # Read current README
-            with open("README.md", "r", encoding="utf-8") as f:
-                readme_content = f.read()
+            # Čitanje i ažuriranje README.md datoteke
+            if os.path.exists("README.md"):
+                with open("README.md", "r", encoding="utf-8") as f:
+                    readme_content = f.read()
+            else:
+                readme_content = "# API Projekt\n"
             
-            # Strategy to cleanly overwrite or append the documentation block
             marker = "## 🛠 API Reference"
             if marker in readme_content:
                 base_content = readme_content.split(marker)[0]
@@ -71,7 +82,7 @@ jobs:
                 
             with open("README.md", "w", encoding="utf-8") as f:
                 f.write(new_readme)
-            print("API Documentation successfully baked into README.md")
+            print("API Dokumentacija je uspješno upisana u README.md!")
         EOF
         python generate_docs.py
 
@@ -80,5 +91,5 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add README.md
-        git diff-index --quiet HEAD || git commit -m "docs: automated synchronization of API endpoints [skip ci]"
+        git diff-index --quiet HEAD || git commit -m "docs: automatska sinkronizacija API dokumentacije [skip ci]"
         git push
