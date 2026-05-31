@@ -20,3 +20,6 @@ def setup_database():
     conn.commit()
     conn.close()
     print("Database initialized.")
+
+if __name__ == "__main__":
+    setup_database()
