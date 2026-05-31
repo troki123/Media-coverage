@@ -45,9 +45,80 @@ The platform utilizes a hybrid architectural ecosystem data-flow:
 
 To spin up the entire Full-Stack ecosystem locally, execute commands in the exact sequence outlined below.
 
-### 1. Environment Configuration Setup
-Ensure you have a `.env` configuration template created inside the root folder (`Media-coverage/`). It must contain valid API credentials to successfully route requests:
+### 1. Clone the Repository
+Open your terminal and clone the project, then navigate straight into the root directory:
+```bash
+git clone https://github.com/troki123/Media-coverage.git
+cd Media-coverage
+```
+
+### 2. Environment Configuration Setup
+Create a .env file inside the root folder (Media-coverage/). It must contain your valid API credentials to successfully route external cloud requests:
 
 ```env
-NEWS_API_KEY=your_news_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
+NEWS_API_KEY=your_actual_news_api_key_here
+GOOGLE_API_KEY=your_actual_gemini_api_key_here
+```
+
+### 3. Backend Setup & Execution (Python Flask)
+Open a new terminal session in your IDE and run the following commands to create the virtual environment, link the interpreter, and install requirements:
+
+#### Create the isolated Python virtual environment
+```bash
+python -m venv venv
+```
+#### Activate the virtual environment (Windows)
+```bash
+.\venv\Scripts\activate
+```
+#### Activate the virtual environment (macOS/Linux alternative)
+```bash
+source venv/bin/activate
+```
+#### Install all backend dependencies
+
+VS Code Tip: Press Ctrl + Shift + P (or Cmd + Shift + P on Mac), search for "Python: Select Interpreter", and choose the interpreter inside your local (venv).
+You might have to restart VS Code.
+
+```bash
+pip install -r requirements.txt
+```
+
+Now, launch the Flask backend server:
+```bash
+python main.py
+```
+### 4. Frontend Setup & Execution (React + Vite)
+Open a separate, second terminal window to boot up the user interface. Install node packages, and launch the development pipeline:
+
+#### Install UI packages
+```bash
+npm install
+```
+#### Run the frontend development server
+```bash
+npm run dev
+```
+### 5. Running the Test Suite
+To verify core endpoint routing, strict AI clickbait filtering rules, and database integrity operations without spending API tokens, trigger the automated Pytest suite in your backend terminal:
+
+```bash
+pytest tests\test_main.py -v
+```
+
+
+## 🛠 API Reference
+
+### 🚀 Automated API Endpoint Registry
+
+| Metoda | Endpoint | Opis rute | Parametri |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/flasgger_static/<path:filename>` | The view function used to serve files from | Nema |
+| **GET** | `/apidocs/` | The /apidocs | Nema |
+| **GET** | `/oauth2-redirect.html` | The OAuth2 redirect HTML for Swagger UI standard/implicit flow | Nema |
+| **GET** | `/apidocs/index.html` | Nema opisa rute. | Nema |
+| **GET** | `/apispec_1.json` | The /apispec_1.json and other specs | Nema |
+| **GET** | `/search` | Search for articles via NewsAPI, process descriptions using Gemini AI, | `q` (Obavezan pojam za pretragu) |
+| **GET** | `/summary` | Generate an isolated system summary using Gemini AI. | Nema |
+| **GET** | `/api/analytics` | Fetches high-level metrics from the actual database/app.db file. | Nema |
+| **GET** | `/api/sources` | Retrieves recent rows from the media_news table grouped by search_id. | Nema |

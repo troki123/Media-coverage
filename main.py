@@ -22,8 +22,14 @@ except ModuleNotFoundError:
 
 from news_summary.Gemini_AIsummary import GeminiSumarize
 from core import setup_logging, register_error_handlers
+from flask_cors import CORS
+from init_db import setup_database
 
 setup_logging()
+
+setup_database()
+
+# === LOAD ENVIRONMENT VARIABLES ===
 load_dotenv()
 
 app = Flask(__name__)
