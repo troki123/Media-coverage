@@ -48,8 +48,8 @@ To spin up the entire Full-Stack ecosystem locally, execute commands in the exac
 ### 1. Clone the Repository
 Open your terminal and clone the project, then navigate straight into the root directory:
 ```bash
-git clone <repository_link>
-cd <project_directory_name>
+git clone https://github.com/troki123/Media-coverage.git
+cd Media-coverage
 ```
 
 ### 2. Environment Configuration Setup
