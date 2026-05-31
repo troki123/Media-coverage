@@ -1,4 +1,4 @@
-import os  # Uncomment when using API_KEY as envirovental variable (on Windows)
+import os  # Uncomment when using API_KEY as environmental variable (on Windows)
 from google import genai
 from google.genai import types
 from datetime import datetime, timezone
@@ -18,7 +18,7 @@ class GeminiSumarize:
 
     def _generate_with_fallback(self, prompt: str):
         try:
-            # Primarni model
+            # Primary model
             logger.info(f"Sending prompt to primary model: {self.primary_model}")
 
             response = self.client.models.generate_content(
@@ -28,7 +28,7 @@ class GeminiSumarize:
             return response, self.primary_model
 
         except Exception as e:
-            # Provjera je li 503 greška
+            # Check if it is a 503 service unavailable error
             if "503" in str(e):
                 logger.warning(f"503 Error on {self.primary_model} — switching to fallback model...")
 
@@ -45,22 +45,22 @@ class GeminiSumarize:
                 logger.error(f"Unexpected Gemini API error: {e}", exc_info=True)
                 return None, None
 
-    def get_summary(self,  article_text: str = None) -> str:
+    def get_summary(self, article_text: str = None) -> str:
         """
+        structured_prompt = "Tell me about BMW"
+        """
+
         structured_prompt = (
-            You are a news analysis expert. Summarize the following text from the Internet"
+            "You are a news analysis expert. Summarize the following text from the Internet "
             "in the form of a short paragraph (the main event), then highlight 3 key details in bullet points. "
             "The answer must be in English and must only contain the summaries.\n\n"
             f"Article text:\n{article_text}"
         )
-        """
-
-        structured_prompt = "Napravi mi samo jedan cvijet, ali sa ASCII znakovima"
-
-        response, koristen_model = self._generate_with_fallback(structured_prompt)
+        
+        response, used_model = self._generate_with_fallback(structured_prompt)
 
         if response and response.text:
-            logger.info(f"Successfully generated summary using model: {koristen_model}")
+            logger.info(f"Successfully generated summary using model: {used_model}")
 
             return response.text + "\n" + str(datetime.now(timezone.utc).strftime("%d-%m-%Y"))
         else:
