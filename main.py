@@ -15,8 +15,6 @@ setup_logging()
 
 setup_database()
 
-setup_database()
-
 # === LOAD ENVIRONMENT VARIABLES ===
 load_dotenv()
 
