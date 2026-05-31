@@ -1,12 +1,15 @@
-import requests
 import os
 import sqlite3
 import sys
 import warnings
+import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flasgger import Swagger
 from flask_cors import CORS
+
+# Import database utilities from init_db.py
+from init_db import ensure_database_tables, DB_PATH
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -29,36 +32,6 @@ swagger = Swagger(app)
 register_error_handlers(app)
 
 
-def ensure_database_tables():
-    """Verifies that the database schema and required tables exist."""
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "database", "app.db")
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS searches (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        query_text TEXT NOT NULL UNIQUE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS media_news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        search_id INTEGER,
-        media_name TEXT NOT NULL,
-        link TEXT NOT NULL,
-        content TEXT,
-        summary TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-    conn.commit()
-    conn.close()
-
-
 def fetch_news(query):
     """Retrieves standard articles matching the search criteria via NewsAPI."""
     url = "https://newsapi.org/v2/everything"
@@ -66,7 +39,7 @@ def fetch_news(query):
     
     params = {
         "q": query,
-        "pageSize": 6,
+        "pageSize": 15,
         "apiKey": api_key,
         "sortBy": "relevancy",
         "language": "en"
@@ -92,12 +65,10 @@ def search():
         return jsonify({"error": "Query parameter 'q' is required"}), 400
 
     ensure_database_tables()
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "database", "app.db")
 
     existing_search_id = None
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM searches WHERE LOWER(query_text) = LOWER(?)", (query,))
         row = cursor.fetchone()
@@ -111,7 +82,7 @@ def search():
     if existing_search_id:
         app.logger.info(f"Cache hit for '{query}' (ID: {existing_search_id})")
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(DB_PATH)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT media_name, link, content, summary FROM media_news WHERE search_id = ?", (existing_search_id,))
@@ -151,7 +122,7 @@ def search():
     ai_analyzer = GeminiSumarize()
 
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         for a in articles:
@@ -200,9 +171,7 @@ def search():
 def get_analytics():
     ensure_database_tables()
     try:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(BASE_DIR, "database", "app.db")
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM searches")
         total_searches = cursor.fetchone()[0]
@@ -218,9 +187,7 @@ def get_analytics():
 def get_sources():
     ensure_database_tables()
     try:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(BASE_DIR, "database", "app.db")
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         

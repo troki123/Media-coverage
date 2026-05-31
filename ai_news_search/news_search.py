@@ -5,7 +5,7 @@ import requests
 import time
 import sqlite3
 from dotenv import load_dotenv
-from init_db import setup_database  
+from init_db import ensure_database_tables 
 
 load_dotenv()
 GOOGLE_KEY = os.getenv("GOOGLE_API_KEY")
@@ -135,7 +135,7 @@ def save_to_db(search_id, link_list_text):
     return count
 
 def main():
-    setup_database()
+    ensure_database_tables()
     
     user_query = input("Enter the topic for a text-only source list: ")
     if not user_query.strip():
