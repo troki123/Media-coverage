@@ -76,11 +76,13 @@ python -m venv venv
 source venv/bin/activate
 ```
 #### Install all backend dependencies
+
+VS Code Tip: Press Ctrl + Shift + P (or Cmd + Shift + P on Mac), search for "Python: Select Interpreter", and choose the interpreter inside your local (venv).
+You might have to restart VS Code.
+
 ```bash
 pip install -r requirements.txt
 ```
-VS Code Tip: Press Ctrl + Shift + P (or Cmd + Shift + P on Mac), search for "Python: Select Interpreter", and choose the interpreter inside your local (venv).
-You might have to restart VS Code.
 
 Now, launch the Flask backend server:
 ```bash

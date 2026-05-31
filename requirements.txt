@@ -4,4 +4,4 @@ flask
 flasgger
 pytest
 flask_cors
-
+google.genai
