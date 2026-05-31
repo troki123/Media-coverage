@@ -8,19 +8,15 @@ def setup_database():
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS media_news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        search_id INTEGER,
-        media_name TEXT NOT NULL,
-        link TEXT NOT NULL,
-        content TEXT,
-        summary TEXT,
-        authors TEXT,              -- NEW: Article authors
-        publish_date DATETIME,     -- NEW: Publication date
-        top_image TEXT,            -- NEW: Main image URL
-        keywords TEXT,             -- NEW: Extracted keywords
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_name TEXT NOT NULL,
+    link TEXT UNIQUE NOT NULL,
+    content TEXT,
+    summary TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    published_date DATE
+)
+""")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS searches (

@@ -1,231 +1,315 @@
-# article_extractor.py
-import sqlite3
 import requests
-from newspaper import Article
 from bs4 import BeautifulSoup
 import time
-import logging
+from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
+# Optional imports with fallbacks
+try:
+    from newspaper import Article
+    NEWSPAPER_AVAILABLE = True
+except ImportError:
+    NEWSPAPER_AVAILABLE = False
+    print("newspaper3k not available. Install with: pip install newspaper3k")
 
-class ArticleExtractor:
-    """Extracts full content from news articles"""
-    
-    # Initializes a new ArticleExtractor object
-    def __init__(self, timeout = 10, user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'):
-        self.timeout = timeout
-        self.headers = {'User-Agent': user_agent}
-        
-    # Extracts all the article contents using newspaper3k library
-    def extract_article_content(self, url):
-        """
-        Extract full article content using newspaper3k
-        Returns dict with title, text, summary, and metadata
-        """
-        try:
-            # Creates na article object
-            article = Article(url, timeout = self.timeout)
-            
-            article.download()
-            article.parse()
-            
-            # Extracts additional metadata
-            result = {
-                'title': article.title,
-                'content': article.text,
-                'summary': article.summary,
-                'authors': ', '.join(article.authors),
-                'publish_date': str(article.publish_date) if article.publish_date else None,
-                'top_image': article.top_image,
-                'keywords': ', '.join(article.keywords),
-                'extraction_success': True
-            }
-            
-            # If the newspaper's summary is empty
-            # Try to get a better summary
-            if not result['summary'] and result['content']:
-                result['summary'] = self._generate_fallback_summary(result['content'])
-                
-            logger.info(f"Successfully extracted content from {url}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Failed to extract content from {url}: {str(e)}")
-            return {
-                'title': None,
-                'content': None,
-                'summary': None,
-                'authors': None,
-                'publish_date': None,
-                'top_image': None,
-                'keywords': None,
-                'extraction_success': False,
-                'error': str(e)
-            }
-    
-    # Creates a simple summary when newspaper3k fails to generate one
-    def _generate_fallback_summary(self, text, max_sentences=3):
-        """Generate a simple summary by taking first few sentences"""
-        sentences = text.split('. ')
-        summary = '. '.join(sentences[:max_sentences])
-        return summary + '.' if summary else text[:500]
-    
-    # Multiple methods to extract contnet
-    def extract_with_fallback(self, url):
-        """
-        Try multiple methods to extract content
-        Falls back to BeautifulSoup if newspaper3k fails
-        """
-        # Extract with newspaper3k
-        result = self.extract_article_content(url)
-        
-        if result['extraction_success'] and result['content']:
-            return result
-        
-        # Fallback to BeautifulSoup
-        logger.info(f"Using BeautifulSoup fallback for {url}")
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Remove script and style elements
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
-            
-            # Try to find main content
-            content_selectors = [
-                'article', '.article-content', '.post-content', 
-                '.entry-content', 'main', '.content', '#content'
-            ]
-            
-            content_text = ""
-            for selector in content_selectors:
-                elements = soup.select(selector)
-                if elements:
-                    content_text = ' '.join([elem.get_text(strip=True) for elem in elements])
-                    break
-            
-            if not content_text:
-                # Get all paragraphs as fallback
-                paragraphs = soup.find_all('p')
-                content_text = ' '.join([p.get_text(strip=True) for p in paragraphs])
-            
-            # Clean up text
-            content_text = ' '.join(content_text.split())
-            
-            result['content'] = content_text
-            result['summary'] = self._generate_fallback_summary(content_text)
-            result['extraction_success'] = True
-            
-        except Exception as e:
-            logger.error(f"Fallback extraction failed for {url}: {str(e)}")
-            result['error'] = str(e)
-            
-        return result
+try:
+    import trafilatura
+    TRAFILATURA_AVAILABLE = True
+except ImportError:
+    TRAFILATURA_AVAILABLE = False
+    print("trafilatura not available. Install with: pip install trafilatura")
 
-# Updates mutliple database records with exctracted content
-def update_database_with_content(search_id, max_articles=None):
-    """
-    Updates existing database entries with full article content
-    """
-    extractor = ArticleExtractor()
-    conn = sqlite3.connect("database/app.db")
-    cursor = conn.cursor()
-    
-    # Get articles without content or summary
-    query = """
-        SELECT id, link, media_name 
-        FROM media_news 
-        WHERE search_id = ? AND (content IS NULL OR summary IS NULL)
-    """
-    
-    if max_articles:
-        query += " LIMIT ?"
-        cursor.execute(query, (search_id, max_articles))
-    else:
-        cursor.execute(query, (search_id,))
-    
-    articles = cursor.fetchall()
-    
-    if not articles:
-        logger.info(f"No articles found needing content extraction for search_id {search_id}")
-        conn.close()
-        return 0
-    
-    logger.info(f"Extracting content for {len(articles)} articles...")
-    updated_count = 0
-    
-    for article_id, url, title in articles:
-        print(f"📰 Processing: {title[:50]}...")
-        
-        # Extract content
-        result = extractor.extract_with_fallback(url)
-        
-        if result['extraction_success'] and result['content']:
-            # Update database
-            cursor.execute("""
-                UPDATE media_news 
-                SET content = ?, summary = ?
-                WHERE id = ?
-            """, (result['content'][:10000], result['summary'][:500], article_id))
-            
-            conn.commit()
-            updated_count += 1
-            print(f"✅ Extracted {len(result['content'])} characters")
-        else:
-            print(f"❌ Failed to extract content")
-        
-        # Be respectful - add delay between requests
-        time.sleep(1)
-    
-    conn.close()
-    return updated_count
 
-def extract_and_save_new_article(search_id, url, title):
+def extract_with_newspaper(url, max_length=10000):
     """
-    Extract content for a single new article and save to database
+    Extract article content using newspaper3k library.
+    Best for news articles.
+    
+    Args:
+        url (str): Article URL
+        max_length (int): Maximum character length of content
+    
+    Returns:
+        tuple: (content, published_date) or (None, None) if failed
     """
-    extractor = ArticleExtractor()
-    result = extractor.extract_with_fallback(url)
+    if not NEWSPAPER_AVAILABLE:
+        return None, None
     
-    conn = sqlite3.connect("database/app.db")
-    cursor = conn.cursor()
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        
+        content = article.text
+        published_date = article.publish_date
+        
+        # Limit content length
+        if content and len(content) > max_length:
+            content = content[:max_length] + "..."
+        
+        # Convert date to string if it exists
+        if published_date:
+            published_date = published_date.strftime('%Y-%m-%d')
+        
+        return content, published_date
     
-    if result['extraction_success'] and result['content']:
-        # Check if article already exists
-        cursor.execute("""
-            SELECT id FROM media_news 
-            WHERE search_id = ? AND link = ?
-        """, (search_id, url))
-        
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Update existing record
-            cursor.execute("""
-                UPDATE media_news 
-                SET content = ?, summary = ?, media_name = ?
-                WHERE id = ?
-            """, (result['content'][:10000], result['summary'][:500], title, existing[0]))
-        else:
-            # Insert new record with content
-            cursor.execute("""
-                INSERT INTO media_news (search_id, media_name, link, content, summary)
-                VALUES (?, ?, ?, ?, ?)
-            """, (search_id, title, url, result['content'][:10000], result['summary'][:500]))
-        
-        conn.commit()
-        success = True
-    else:
-        # Insert without content
-        cursor.execute("""
-            INSERT INTO media_news (search_id, media_name, link)
-            VALUES (?, ?, ?)
-        """, (search_id, title, url))
-        conn.commit()
-        success = False
+    except Exception as e:
+        print(f"Newspaper extraction failed for {url}: {e}")
+        return None, None
+
+
+def extract_with_trafilatura(url, max_length=10000):
+    """
+    Extract article content using trafilatura library.
+    Good for large-scale extraction.
     
-    conn.close()
-    return success, result
+    Args:
+        url (str): Article URL
+        max_length (int): Maximum character length of content
+    
+    Returns:
+        tuple: (content, None) or (None, None) if failed
+    """
+    if not TRAFILATURA_AVAILABLE:
+        return None, None
+    
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if downloaded:
+            content = trafilatura.extract(downloaded)
+            if content and len(content) > 100:
+                if len(content) > max_length:
+                    content = content[:max_length] + "..."
+                return content, None
+        return None, None
+    
+    except Exception as e:
+        print(f"Trafilatura extraction failed for {url}: {e}")
+        return None, None
+
+
+def extract_with_beautifulsoup(url, max_length=10000):
+    """
+    Fallback extraction using requests and BeautifulSoup.
+    
+    Args:
+        url (str): Article URL
+        max_length (int): Maximum character length of content
+    
+    Returns:
+        tuple: (content, None) or (None, None) if failed
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Remove script and style elements
+        for element in soup(["script", "style", "nav", "footer", "header"]):
+            element.decompose()
+        
+        # Try to find main content area
+        main_content = None
+        for selector in ['article', 'main', '.article-content', '.post-content', '.entry-content', '#content']:
+            main_content = soup.select_one(selector)
+            if main_content:
+                break
+        
+        # If no specific content area found, use body
+        if not main_content:
+            main_content = soup.body
+        
+        # Get text
+        text = main_content.get_text()
+        
+        # Clean up text
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        
+        # Limit length
+        if len(text) > max_length:
+            text = text[:max_length] + "..."
+        
+        return text if len(text) > 200 else None, None
+    
+    except Exception as e:
+        print(f"BeautifulSoup extraction failed for {url}: {e}")
+        return None, None
+
+
+def extract_article_content(url, method='auto', max_length=10000):
+    """
+    Main function to extract article content with multiple fallback methods.
+    
+    Args:
+        url (str): Article URL
+        method (str): Extraction method - 'newspaper', 'trafilatura', 'bs4', or 'auto'
+        max_length (int): Maximum character length of content
+    
+    Returns:
+        tuple: (content, published_date) or (None, None) if extraction fails
+    """
+    print(f"Extracting content from: {url[:80]}...")
+    
+    content = None
+    published_date = None
+    
+    # Try specified method first
+    if method == 'newspaper':
+        content, published_date = extract_with_newspaper(url, max_length)
+        if content:
+            return content, published_date
+            
+    elif method == 'trafilatura':
+        content, published_date = extract_with_trafilatura(url, max_length)
+        if content:
+            return content, published_date
+            
+    elif method == 'bs4':
+        content, published_date = extract_with_beautifulsoup(url, max_length)
+        if content:
+            return content, published_date
+            
+    elif method == 'auto':
+        # Try methods in order of preference
+        if NEWSPAPER_AVAILABLE:
+            content, published_date = extract_with_newspaper(url, max_length)
+            if content:
+                return content, published_date
+        
+        if TRAFILATURA_AVAILABLE:
+            content, published_date = extract_with_trafilatura(url, max_length)
+            if content:
+                return content, published_date
+        
+        content, published_date = extract_with_beautifulsoup(url, max_length)
+        if content:
+            return content, published_date
+    
+    print(f"❌ All extraction methods failed for: {url}")
+    return None, None
+
+
+def extract_multiple_articles(urls, delay=1, method='auto', max_length=10000):
+    """
+    Extract content from multiple articles with delay between requests.
+    
+    Args:
+        urls (list): List of article URLs
+        delay (float): Seconds to wait between requests
+        method (str): Extraction method
+        max_length (int): Maximum content length
+    
+    Returns:
+        dict: Dictionary with URL as key and (content, published_date) as value
+    """
+    results = {}
+    
+    for idx, url in enumerate(urls, 1):
+        print(f"Processing article {idx}/{len(urls)}")
+        
+        content, published_date = extract_article_content(url, method, max_length)
+        results[url] = {
+            'content': content,
+            'published_date': published_date,
+            'success': content is not None
+        }
+        
+        if idx < len(urls):  # Don't delay after last request
+            time.sleep(delay)
+    
+    return results
+
+
+def is_valid_url(url):
+    """
+    Check if URL is valid.
+    
+    Args:
+        url (str): URL to validate
+    
+    Returns:
+        bool: True if URL is valid
+    """
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except:
+        return False
+
+
+def get_domain_from_url(url):
+    """
+    Extract domain name from URL.
+    
+    Args:
+        url (str): Article URL
+    
+    Returns:
+        str: Domain name or None
+    """
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc
+        # Remove www. prefix if present
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        return domain
+    except:
+        return None
+
+
+# Optional: Cache for extracted content to avoid re-extracting
+class ContentCache:
+    """Simple cache for extracted content to avoid duplicate work."""
+    
+    def __init__(self):
+        self.cache = {}
+    
+    def get(self, url):
+        return self.cache.get(url)
+    
+    def set(self, url, content, published_date):
+        self.cache[url] = {'content': content, 'published_date': published_date}
+    
+    def clear(self):
+        self.cache.clear()
+    
+    def size(self):
+        return len(self.cache)
+
+
+# Create a global cache instance
+content_cache = ContentCache()
+
+
+def extract_article_content_with_cache(url, method='auto', max_length=10000, use_cache=True):
+    """
+    Extract article content with caching to avoid re-extracting same URLs.
+    
+    Args:
+        url (str): Article URL
+        method (str): Extraction method
+        max_length (int): Maximum content length
+        use_cache (bool): Whether to use cache
+    
+    Returns:
+        tuple: (content, published_date)
+    """
+    if use_cache:
+        cached = content_cache.get(url)
+        if cached:
+            print(f"Using cached content for: {url[:80]}...")
+            return cached['content'], cached['published_date']
+    
+    content, published_date = extract_article_content(url, method, max_length)
+    
+    if use_cache and content:
+        content_cache.set(url, content, published_date)
+    
+    return content, published_date

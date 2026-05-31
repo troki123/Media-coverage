@@ -4,6 +4,8 @@ import time
 import sqlite3
 from dotenv import load_dotenv
 from init_db import setup_database  
+from content_extractor import extract_article_content_with_cache, is_valid_url
+import content_extractor
 
 # --- CONFIGURATION ---
 load_dotenv()
@@ -40,7 +42,7 @@ def fetch_news(query):
             url_link = a.get("url")
             description = a.get("description", "No description available")
             
-            if title and url_link:
+            if title and url_link and is_valid_url(url_link):
                 context += f"TITLE: {title}\nURL: {url_link}\nDESC: {description}\n---\n"
         
         return context
@@ -77,7 +79,6 @@ def get_or_create_search_id(query):
     """Provjerava bazu i vraća stari ID ili kreira novi."""
     conn = sqlite3.connect("database/app.db")
     cursor = conn.cursor()
-
     
     cursor.execute("SELECT id FROM searches WHERE LOWER(query_text) = LOWER(?)", (query.strip(),))
     row = cursor.fetchone()
@@ -94,13 +95,14 @@ def get_or_create_search_id(query):
     conn.close()
     return search_id
 
-def save_to_db(search_id, link_list_text):
+def save_to_db(search_id, link_list_text, extract_content=True):
     """Parsira tekst od Gemini-ja i sprema u bazu samo ako su naslov i link valjani."""
     conn = sqlite3.connect("database/app.db")
     cursor = conn.cursor()
     
     lines = link_list_text.strip().split('\n')
     count = 0
+    
     for line in lines:
         if "|" in line:
             clean_line = line.split('.', 1)[-1] if '.' in line[:4] else line
@@ -111,7 +113,7 @@ def save_to_db(search_id, link_list_text):
                 url = parts[1].strip()
                 
                 # DODATNA PROVJERA: Preskoči ako su naslov ili URL prazni
-                if not title or not url:
+                if not title or not url or not is_valid_url(url):
                     continue
                 
                 # Provjera duplikata
@@ -121,11 +123,22 @@ def save_to_db(search_id, link_list_text):
                 """, (search_id, url))
                 
                 if not cursor.fetchone():
+                    content = None
+                    published_date = None
+                    
+                    # Extract content if requested
+                    if extract_content:
+                        content, published_date = extract_article_content_with_cache(url)
+                    
+                    # Insert into database
                     cursor.execute(
-                        "INSERT INTO media_news (search_id, media_name, link) VALUES (?, ?, ?)",
-                        (search_id, title, url)
-                    )
-                    count += 1  # Povećava se SAMO ako je stvarno spremljeno u bazu
+                        """
+                        INSERT INTO media_news (search_id, media_name, link, content, published_date) 
+                        VALUES (?, ?, ?, ?, ?)
+                        """, 
+                        (search_id, title, url, content, published_date))
+                    count += 1
+                    print(f"✅ Saved: {title[:60]}...")
     
     conn.commit()
     conn.close()
@@ -138,6 +151,10 @@ def main():
     if not user_query.strip():
         print("Query cannot be empty.")
         return
+    
+    # Ask if user wants to extract content
+    extract_choice = input("Extract full article content? (y/n, default: n): ").lower().strip()
+    extract_content = extract_choice == 'y'
 
     try:
         # 1. Uzmi ili kreiraj povijesni ID
@@ -157,13 +174,16 @@ def main():
             return
 
         # 4. Spremi pročišćene rezultate u SQLite
-        saved_count = save_to_db(current_search_id, link_list)
+        saved_count = save_to_db(current_search_id, link_list, extract_content)
         
         print("\n" + "="*60)
         print(f" TEXT-ONLY SOURCES FOR: {user_query.upper()} (ID: {current_search_id}) ")
         print("="*60)
         print(link_list)
         print(f"\n✅ Successfully saved {saved_count} new sources to database/app.db")
+        
+        if extract_content:
+            print(f"\n Content cache size: {content_extractor.content_cache.size()} URLs")
         
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}")
