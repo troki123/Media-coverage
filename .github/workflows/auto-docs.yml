@@ -30,16 +30,24 @@ jobs:
         cat << 'EOF' > generate_docs.py
         import os
         import sys
-        import types
+        import types as pytypes
 
-        # 1. Stvaranje lažnog (mock) modula za 'google.genai' da spriječimo rušenje pri importu
-        mock_genai = types.ModuleType("genai")
-        mock_google = types.ModuleType("google")
+        # 1. Kreiranje robusnog lažnog (mock) modula za google i google.genai.types
+        mock_genai = pytypes.ModuleType("genai")
+        mock_types = pytypes.ModuleType("types")
+        
+        # Povezivanje podmodula kako bi 'from google.genai import types' radilo bez greške
+        mock_genai.types = mock_types
+        
+        mock_google = pytypes.ModuleType("google")
         mock_google.genai = mock_genai
+        
+        # Ubacivanje u sistemske module kako bi ih Flask prepoznao pri uvozu main.py
         sys.modules["google"] = mock_google
         sys.modules["google.genai"] = mock_genai
+        sys.modules["google.genai.types"] = mock_types
 
-        # Postavljanje lažnog API ključa za okolinu
+        # Postavljanje lažnog API ključa za okolinu da Flask ne javi grešku
         os.environ["NEWS_API_KEY"] = "mock_key"
         
         try:
