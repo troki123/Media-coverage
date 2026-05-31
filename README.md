@@ -45,9 +45,61 @@ The platform utilizes a hybrid architectural ecosystem data-flow:
 
 To spin up the entire Full-Stack ecosystem locally, execute commands in the exact sequence outlined below.
 
-### 1. Environment Configuration Setup
-Ensure you have a `.env` configuration template created inside the root folder (`Media-coverage/`). It must contain valid API credentials to successfully route requests:
+### 1. Clone the Repository
+Open your terminal and clone the project, then navigate straight into the root directory:
+```bash
+git clone <repository_link>
+cd <project_directory_name>
+```
+
+### 2. Environment Configuration Setup
+Create a .env file inside the root folder (Media-coverage/). It must contain your valid API credentials to successfully route external cloud requests:
 
 ```env
-NEWS_API_KEY=your_news_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
+NEWS_API_KEY=your_actual_news_api_key_here
+GOOGLE_API_KEY=your_actual_gemini_api_key_here
+```
+
+### 3. Backend Setup & Execution (Python Flask)
+Open a new terminal session in your IDE and run the following commands to create the virtual environment, link the interpreter, and install requirements:
+
+#### Create the isolated Python virtual environment
+```bash
+python -m venv venv
+```
+#### Activate the virtual environment (Windows)
+```bash
+.\venv\Scripts\activate
+```
+#### Activate the virtual environment (macOS/Linux alternative)
+```bash
+source venv/bin/activate
+```
+#### Install all backend dependencies
+```bash
+pip install -r requirements.txt
+```
+VS Code Tip: Press Ctrl + Shift + P (or Cmd + Shift + P on Mac), search for "Python: Select Interpreter", and choose the interpreter inside your local (venv).
+You might have to restart VS Code.
+
+Now, launch the Flask backend server:
+```bash
+python main.py
+```
+### 4. Frontend Setup & Execution (React + Vite)
+Open a separate, second terminal window to boot up the user interface. Install node packages, and launch the development pipeline:
+
+#### Install UI packages
+```bash
+npm install
+```
+#### Run the frontend development server
+```bash
+npm run dev
+```
+### 5. Running the Test Suite
+To verify core endpoint routing, strict AI clickbait filtering rules, and database integrity operations without spending API tokens, trigger the automated Pytest suite in your backend terminal:
+
+```bash
+pytest test_main.py -v
+```
