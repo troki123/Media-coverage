@@ -1,11 +1,12 @@
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import requests
 import time
 import sqlite3
 from dotenv import load_dotenv
 from init_db import setup_database  
 
-# --- CONFIGURATION ---
 load_dotenv()
 GOOGLE_KEY = os.getenv("GOOGLE_API_KEY")
 NEWS_KEY = os.getenv("NEWS_API_KEY") 
@@ -13,7 +14,7 @@ NEWS_KEY = os.getenv("NEWS_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GOOGLE_KEY}"
 
 def fetch_news(query):
-    """Dohvaća vijesti s NewsAPI-ja."""
+    """Retrieves news articles from the NewsAPI backend service."""
     print(f"🔍 Fetching articles from NewsAPI for: {query}...")
     url = "https://newsapi.org/v2/everything"
     params = {
@@ -32,10 +33,8 @@ def fetch_news(query):
             print(f"⚠️ NewsAPI Error: {data.get('message', 'Unknown error')}")
             return ""
 
-        # Pakiramo podatke u tekstualni kontekst za Gemini
         context = ""
         for a in data["articles"]:
-            # Sigurno izvlačenje podataka 
             title = a.get("title")
             url_link = a.get("url")
             description = a.get("description", "No description available")
@@ -50,7 +49,7 @@ def fetch_news(query):
         return ""
 
 def ask_gemini(news_content, query):
-    """Gemini kritički analizira NewsAPI podatke, odbacuje irelevantne kontroverze i traži bit."""
+    """Evaluates article metadata using Gemini to filter out clickbait and rank sources."""
     print("🧠 AI is strictly filtering and verifying source relevance...")
     
     prompt_text = (
@@ -74,7 +73,7 @@ def ask_gemini(news_content, query):
         return f"AI Connection Error: {e}"
 
 def get_or_create_search_id(query):
-    """Provjerava bazu i vraća stari ID ili kreira novi."""
+    """Retrieves an existing batch track ID or instantiates a new timestamp identifier."""
     conn = sqlite3.connect("database/app.db")
     cursor = conn.cursor()
     
@@ -101,7 +100,7 @@ def get_or_create_search_id(query):
     return search_id
 
 def save_to_db(search_id, link_list_text):
-    """Parsira tekst od Gemini-ja i sprema u bazu samo ako su naslov i link valjani."""
+    """Parses text received from Gemini and maps valid source metadata into persistent database rows."""
     conn = sqlite3.connect("database/app.db")
     cursor = conn.cursor()
     
@@ -116,11 +115,9 @@ def save_to_db(search_id, link_list_text):
                 title = parts[0].strip()
                 url = parts[1].strip()
                 
-                # DODATNA PROVJERA: Preskoči ako su naslov ili URL prazni
                 if not title or not url:
                     continue
                 
-                # Provjera duplikata
                 cursor.execute("""
                     SELECT 1 FROM media_news 
                     WHERE search_id = ? AND link = ?
@@ -131,7 +128,7 @@ def save_to_db(search_id, link_list_text):
                         "INSERT INTO media_news (search_id, media_name, link) VALUES (?, ?, ?)",
                         (search_id, title, url)
                     )
-                    count += 1  # Povećava se SAMO ako je stvarno spremljeno u bazu
+                    count += 1
     
     conn.commit()
     conn.close()
@@ -146,23 +143,18 @@ def main():
         return
 
     try:
-        # 1. Uzmi ili kreiraj povijesni ID
         current_search_id = get_or_create_search_id(user_query)
-        
-        # 2. Povuci sirove vijesti s NewsAPI-ja (nema cenzure za osjetljive teme)
         news_data = fetch_news(user_query)
         if not news_data:
             print("No sources found from NewsAPI.")
             return
             
-        # 3. Pošalji Gemini-ju da probrani materijal pretvori u top 10 linkova
         link_list = ask_gemini(news_data, user_query)
         
         if "AI Error" in link_list or "AI Connection Error" in link_list:
             print(f"❌ Gemini failed: {link_list}")
             return
 
-        # 4. Spremi pročišćene rezultate u SQLite
         saved_count = save_to_db(current_search_id, link_list)
         
         print("\n" + "="*60)
