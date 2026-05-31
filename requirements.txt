@@ -1,0 +1,7 @@
+flask
+flasgger
+flask-cors
+python-dotenv
+requests
+google-genai
+pydantic
