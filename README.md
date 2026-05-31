@@ -103,5 +103,5 @@ npm run dev
 To verify core endpoint routing, strict AI clickbait filtering rules, and database integrity operations without spending API tokens, trigger the automated Pytest suite in your backend terminal:
 
 ```bash
-pytest test_main.py -v
+pytest tests\test_main.py -v
 ```
