@@ -32,49 +32,48 @@ jobs:
         import sys
         import types as pytypes
 
-        # 1. Kreiranje robusnog lažnog (mock) modula za google i google.genai.types
+        # 1.Creating mock for google i google.genai.types
         mock_genai = pytypes.ModuleType("genai")
         mock_types = pytypes.ModuleType("types")
         
-        # Povezivanje podmodula kako bi 'from google.genai import types' radilo bez greške
+        # Createing submodule for 'from google.genai import types' 
         mock_genai.types = mock_types
         
         mock_google = pytypes.ModuleType("google")
         mock_google.genai = mock_genai
         
-        # Ubacivanje u sistemske module kako bi ih Flask prepoznao pri uvozu main.py
+        
         sys.modules["google"] = mock_google
         sys.modules["google.genai"] = mock_genai
         sys.modules["google.genai.types"] = mock_types
 
-        # Postavljanje lažnog API ključa za okolinu da Flask ne javi grešku
         os.environ["NEWS_API_KEY"] = "mock_key"
         
         try:
             from main import app
-            print("Uspješno učitan Flask backend podsustav.")
+            print("Successfully loaded Flask backend subsystem.")
         except Exception as e:
-            print(f"Greška pri ekstrakciji: {e}")
+            print(f" Extraction error: {e}")
             sys.exit(1)
             
         with app.test_request_context():
             markdown_output = "### 🚀 Automated API Endpoint Registry\n\n"
-            markdown_output += "| Metoda | Endpoint | Opis rute | Parametri |\n"
+            markdown_output += "| Metod | Endpoint | Route description | Parameters |\n"
             markdown_output += "| :--- | :--- | :--- | :--- |\n"
             
             for rule in app.url_map.iter_rules():
                 if rule.endpoint != 'static':
                     methods = ', '.join([m for m in rule.methods if m not in ['OPTIONS', 'HEAD']])
                     docstring = app.view_functions[rule.endpoint].__doc__
-                    clean_doc = docstring.strip().split('\n')[0] if docstring else "Nema opisa rute."
+                    clean_doc = docstring.strip().split('\n')[0] if docstring else "Missing route description."
                     
-                    params = "Nema"
+                    params = "None"
                     if "search" in rule.rule:
-                        params = "`q` (Obavezan pojam za pretragu)"
+                        params = "`q` (Required search term)"
                         
                     markdown_output += f"| **{methods}** | `{rule.rule}` | {clean_doc} | {params} |\n"
             
-            # Čitanje i ažuriranje README.md datoteke
+            #Reading and updating the README.md file
             if os.path.exists("README.md"):
                 with open("README.md", "r", encoding="utf-8") as f:
                     readme_content = f.read()
@@ -90,7 +89,7 @@ jobs:
                 
             with open("README.md", "w", encoding="utf-8") as f:
                 f.write(new_readme)
-            print("API Dokumentacija je uspješno upisana u README.md!")
+            print("API Documentation successfully entered into README.md!")
         EOF
         python generate_docs.py
 
