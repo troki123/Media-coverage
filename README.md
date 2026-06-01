@@ -105,3 +105,20 @@ To verify core endpoint routing, strict AI clickbait filtering rules, and databa
 ```bash
 pytest tests\test_main.py -v
 ```
+
+
+## 🛠 API Reference
+
+### 🚀 Automated API Endpoint Registry
+
+| Metod | Endpoint | Route description | Parameters |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/flasgger_static/<path:filename>` | The view function used to serve files from | None |
+| **GET** | `/apidocs/` | The /apidocs | None |
+| **GET** | `/oauth2-redirect.html` | The OAuth2 redirect HTML for Swagger UI standard/implicit flow | None |
+| **GET** | `/apidocs/index.html` | Missing route description. | None |
+| **GET** | `/apispec_1.json` | The /apispec_1.json and other specs | None |
+| **GET** | `/search` | Search for articles via NewsAPI, process descriptions using Gemini AI, | `q` (Required search term) |
+| **GET** | `/summary` | Generate an isolated system summary using Gemini AI. | None |
+| **GET** | `/api/analytics` | Fetches high-level metrics from the actual database/app.db file. | None |
+| **GET** | `/api/sources` | Retrieves recent rows from the media_news table grouped by search_id. | None |
