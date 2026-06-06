@@ -27,4 +27,7 @@ def setup_database():
 
     conn.commit()
     conn.close()
-    print("Database initialized with full article schema.")
+    print("Database initialized.")
+
+if __name__ == "__main__":
+    setup_database()

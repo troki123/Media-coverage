@@ -1,0 +1,102 @@
+name: Automated API Documentation Sync
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  update-api-documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Repository Source
+      uses: actions/checkout@v4
+
+    - name: Initialize Python Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Application Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flask requests python-dotenv flasgger flask-cors google-generativeai
+
+    - name: Generate Markdown API Schema
+      run: |
+        cat << 'EOF' > generate_docs.py
+        import os
+        import sys
+        import types as pytypes
+
+        # 1.Creating mock for google i google.genai.types
+        mock_genai = pytypes.ModuleType("genai")
+        mock_types = pytypes.ModuleType("types")
+        
+        # Createing submodule for 'from google.genai import types' 
+        mock_genai.types = mock_types
+        
+        mock_google = pytypes.ModuleType("google")
+        mock_google.genai = mock_genai
+        
+        
+        sys.modules["google"] = mock_google
+        sys.modules["google.genai"] = mock_genai
+        sys.modules["google.genai.types"] = mock_types
+
+        os.environ["NEWS_API_KEY"] = "mock_key"
+        
+        try:
+            from main import app
+            print("Successfully loaded Flask backend subsystem.")
+        except Exception as e:
+            print(f" Extraction error: {e}")
+            sys.exit(1)
+            
+        with app.test_request_context():
+            markdown_output = "### 🚀 Automated API Endpoint Registry\n\n"
+            markdown_output += "| Metod | Endpoint | Route description | Parameters |\n"
+            markdown_output += "| :--- | :--- | :--- | :--- |\n"
+            
+            for rule in app.url_map.iter_rules():
+                if rule.endpoint != 'static':
+                    methods = ', '.join([m for m in rule.methods if m not in ['OPTIONS', 'HEAD']])
+                    docstring = app.view_functions[rule.endpoint].__doc__
+                    clean_doc = docstring.strip().split('\n')[0] if docstring else "Missing route description."
+                    
+                    params = "None"
+                    if "search" in rule.rule:
+                        params = "`q` (Required search term)"
+                        
+                    markdown_output += f"| **{methods}** | `{rule.rule}` | {clean_doc} | {params} |\n"
+            
+            #Reading and updating the README.md file
+            if os.path.exists("README.md"):
+                with open("README.md", "r", encoding="utf-8") as f:
+                    readme_content = f.read()
+            else:
+                readme_content = "# API Projekt\n"
+            
+            marker = "## 🛠 API Reference"
+            if marker in readme_content:
+                base_content = readme_content.split(marker)[0]
+                new_readme = base_content + marker + "\n\n" + markdown_output
+            else:
+                new_readme = readme_content + "\n\n" + marker + "\n\n" + markdown_output
+                
+            with open("README.md", "w", encoding="utf-8") as f:
+                f.write(new_readme)
+            print("API Documentation successfully entered into README.md!")
+        EOF
+        python generate_docs.py
+
+    - name: Commit and Push Documentation Updates
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add README.md
+        git diff-index --quiet HEAD || git commit -m "docs: automatic synchronization of API documentation [skip ci]"
+        git push
