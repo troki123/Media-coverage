@@ -20,11 +20,12 @@ load_dotenv()
 
 # === API CONFIGURATION ===
 app = Flask(__name__)
+
 CORS(app)
 swagger = Swagger(app)
 
 # === GLOBAL EXCEPTION HANDLER ===
-register_error_handlers(app)
+register_error_handlers(app) 
 
 
 def fetch_news(query):
@@ -167,10 +168,33 @@ def news_summary():
     """
     Generate an isolated system summary using Gemini AI.
     ---
+    parameters:
+      - name: search_id
+        in: query
+        type: integer
+        required: true
+        description: The internal database search tracking ID to run batch summaries against
+
     responses:
       200:
-        description: Successfully generated summary
+        description: Successfully generated batch summaries
+      400:
+        description: Missing required search_id parameter
+
     """
+    # Extract search_id safely from the incoming URL query string
+    search_id_raw = request.args.get("search_id")
+
+    if not search_id_raw:
+        app.logger.warning("Endpoint /summary called without a search_id parameter.")
+        return jsonify({"error": "Missing required parameter: search_id"}), 400
+
+    try:
+        search_id = int(search_id_raw)
+    except ValueError:
+        return jsonify({"error": "Parameter search_id must be an integer"}), 400
+
+
     app.logger.info("Endpoint /summary called. Initializing Gemini Summarization...")
     summary = GeminiSumarize()
     return summary.get_summary() 

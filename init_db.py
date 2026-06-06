@@ -1,4 +1,4 @@
-# init_db.py
+# init_db.py (UPDATED VERSION)
 import sqlite3
 import os
 
@@ -8,15 +8,23 @@ def setup_database():
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS media_news (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        search_id INTEGER,
-        media_name TEXT NOT NULL,
-        link TEXT NOT NULL,
-        content TEXT,
-        summary TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_name TEXT NOT NULL,
+    link TEXT UNIQUE NOT NULL,
+    content TEXT,
+    summary TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    published_date DATE
+)
+""")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS searches (
+            id INTEGER PRIMARY KEY,
+            query_text TEXT UNIQUE
+        )
     """)
+
     conn.commit()
     conn.close()
     print("Database initialized.")
